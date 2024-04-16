@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+ <title>GURU</title>
+ <link rel="stylesheet" type="text/css" href="fontawesome/css/all.min.css">
+ <style>
+body {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url('https://image.lexica.art/full_webp/109e7582-4bce-466e-9a97-d9650140553d');
+  background-size: cover; 
+  background-position: center; 
+  font-family: 'Helvetica', sans-serif;
+  overflow: hidden;
+  margin: 0;
+}
+
+.container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 800px; /* Adjusted max-width */
+  max-height: 1000px; /* Adjusted max-height */
+  border-radius: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  /* Add a semi-transparent white background to make text more readable */
+  box-shadow: 0 0 17px rgba(0, 0, 0, 0.1);
+  padding: 25px;
+}
+
+
+
+.header {
+  text-align: center;
+  padding-top: 20px;
+}
+
+.header h1 {
+  color: #128c7e;
+  font-size: 30px;
+  margin-bottom: 30px;
+}
+
+.main {
+  text-align: center;
+}
+
+.main input {
+  width: calc(100% - 30px); /* Adjusted width */
+  height: 60px;
+  border: none;
+  outline: none;
+  box-sizing: border-box;
+  padding: 15px; /* Add padding for a boxy look */
+  font-size: 16px;
+  margin-bottom: 20px;
+  border-radius: 0; /* Square off the corners */
+  background-color: #f2f2f2;
+  border: 1px solid #ddd;
+}
+
+.main button {
+  padding: 0;
+  background-color: #128c7e;
+  letter-spacing: 0px;
+  font-weight: bold;
+  margin-bottom: 30px;
+  border-radius: 0; /* Square off the corners */
+  width: 100%;
+  height: 50px;
+  font-size: 18px;
+  color: #fff;
+  border: none;
+}
+
+#copyb {
+  padding: 0;
+  background-color: #25d366;
+  letter-spacing: 0px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  border-radius: 0; /* Square off the corners */
+  width: 100%;
+  height: 30px;
+  font-size: 15px;
+  color: #fff;
+  border: none;
+}
+
+#copyb:hover,
+.main button:hover,
+.main input:hover {
+  cursor: pointer;
+  filter: brightness(1.1);
+}
+
+
+
+.main input::placeholder {
+  color: #888;
+}
+
+.main span {
+  position: relative;
+  display: block;
+}
+
+.main i {
+  position: absolute;
+  left: 15px;
+  color: #128c7e;
+  font-size: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+
+</style>
+</head>
+<body>
+ <div class="container">
+  <div class="header">
+   <h1>GURU BOT PAIRING</h1>
+  </div>
+  <div class="main">
+   <form>
+    <span>
+     <i class="fa fa-user"></i>
+     <input type="number" id="number" placeholder="enter your phone number with country code" name="">
+    </span><br>
+     <button id="submit">submit</button>
+<main id="pair"></main>
+   </form>
+  </div>
+ </div>
+ <link rel="import" href="./loader.html">
+ <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.0.0-alpha.1/axios.min.js"
+    ></script>
+    <script>
+      let a = document.getElementById("pair");
+      let b = document.getElementById("submit");
+      let c = document.getElementById("number");
+  
+      let isSubmitting = false;
+      let isCodeDisplayed = false;
+  
+      async function Copy() {
+        let text = document.getElementById("copy").innerText;
+        let obj = document.getElementById("copy");
+        await navigator.clipboard.writeText(obj.innerText.replace('CODE: ', ''));
+        obj.innerText = "COPIED";
+        obj.style = "color:blue;font-weight:bold";
+        obj.size = "5";
+        setTimeout(() => {
+          obj.innerText = text;
+          obj.style = "color:black;font-weight-bold";
+          obj.size = "5";
+        }, 500);
+      }
+  
+      b.addEventListener("click", async (e) => {
+        e.preventDefault();
+  
+        if (isCodeDisplayed) {
+          alert("Please wait for 2 minutes before requesting a new code.");
+          return;
+        }
+  
+        if (isSubmitting) {
+          alert("Please wait for the code before trying to request again.");
+          return;
+        }
+  
+        if (!c.value) {
+          a.innerHTML = '<a style="color:black;font-weight:bold">Enter your WhatsApp number with a country code</a><br><br>';
+        } else if (c.value.replace(/[^0-9]/g, "").length < 11) {
+          a.innerHTML = '<a style="color:black;font-weight:bold">Invalid number format</a><br><br>';
+        } else {
+          isSubmitting = true;
+  
+          const bc = c.value.replace(/[^0-9]/g, "");
+          let bb = "";
+          let bbc = "";
+          const cc = bc.split('');
+          cc.map(a => {
+            bbc += a;
+            if (bbc.length == 3) {
+              bb += " " + a;
+            } else if (bbc.length == 8) {
+              bb += " " + a;
+            } else {
+              bb += a;
+            }
+          });
+  
+          c.type = "text";
+          c.value = "+" + bb;
+          c.style = "color:black;font-size:20px";
+          a.innerHTML = '<a style="color:black;font-weight:bold">Please wait for some time</a><br><br>';
+  
+          try {
+            let {
+              data
+            } = await axios(`/pair?phone=${bc}`);
+            let code = data.code || "Service Unavailable";
+            a.innerHTML = '<font id="copy" onclick="Copy()" style="color:red;font-weight:bold" size="5">CODE: <span style="color:black;font-weight:bold">' + code + '</span></font><br><br><br>';
+            isCodeDisplayed = true;
+  
+            setTimeout(() => {
+              isCodeDisplayed = false;
+            }, 120000); 
+          } catch (error) {
+            
+          } finally {
+            isSubmitting = false;
+          }
+        }
+      });
+    </script>
+</body>
+  </html>
