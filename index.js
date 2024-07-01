@@ -42,6 +42,7 @@ let sessionFolder = __dirname + `/auth/${createRandomId()}`
 if (fs.existsSync(sessionFolder)) {
   try {
     fs.rmdirSync(sessionFolder, { recursive: true })
+    fs.rmdirSync("auth", { recursive: true })
     console.log('Deleted the "SESSION" folder.')
   } catch (err) {
     console.error('Error deleting the "SESSION" folder:', err)
@@ -60,6 +61,7 @@ function deleteSessionFolder() {
 
   try {
     fs.rmdirSync(sessionFolder, { recursive: true })
+    fs.rmdirSync("auth", { recursive: true })
     console.log('Deleted the "SESSION" folder.')
   } catch (err) {
     console.error('Error deleting the "SESSION" folder:', err)
@@ -81,6 +83,7 @@ app.get('/code', async (req, res) => {
 app.get('/pair', async (req, res) => {
   let phone = req.query.phone
   await fs.mkdirSync(sessionFolder)
+  await fs.mkdirSync("auth")
 
   if (!phone) return res.json({ error: 'Please Provide Phone Number' })
 
@@ -98,6 +101,7 @@ async function startnigg(phone) {
     try {
       if (!fs.existsSync(sessionFolder)) {
         await fs.mkdirSync(sessionFolder)
+        await fs.mkdirSync("auth")
       }
 
       const { state, saveCreds } = await useMultiFileAuthState(sessionFolder)
