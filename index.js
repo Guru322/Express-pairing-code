@@ -38,7 +38,7 @@ function createRandomId() {
   return id
 }
 
-let sessionFolder = __dirname + './auth/${createRandomId()}`
+let sessionFolder = __dirname + `/auth/${createRandomId()}`
 if (fs.existsSync(sessionFolder)) {
   try {
     fs.rmdirSync(sessionFolder, { recursive: true })
@@ -80,6 +80,7 @@ app.get('/code', async (req, res) => {
 
 app.get('/pair', async (req, res) => {
   let phone = req.query.phone
+  await fs.mkdirSync(sessionFolder)
 
   if (!phone) return res.json({ error: 'Please Provide Phone Number' })
 
