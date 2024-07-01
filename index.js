@@ -38,7 +38,7 @@ function createRandomId() {
   return id
 }
 
-let sessionFolder = `./auth/${createRandomId()}`
+let sessionFolder = __dirname + './auth/${createRandomId()}`
 if (fs.existsSync(sessionFolder)) {
   try {
     fs.rmdirSync(sessionFolder, { recursive: true })
