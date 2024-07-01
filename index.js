@@ -96,7 +96,7 @@ async function startnigg(phone) {
   return new Promise(async (resolve, reject) => {
     try {
       if (!fs.existsSync(sessionFolder)) {
-        fs.mkdirSync(sessionFolder)
+        await fs.mkdirSync(sessionFolder)
       }
 
       const { state, saveCreds } = await useMultiFileAuthState(sessionFolder)
