@@ -82,8 +82,8 @@ app.get('/code', async (req, res) => {
 
 app.get('/pair', async (req, res) => {
   let phone = req.query.phone
-  await fs.mkdirSync(sessionFolder)
   await fs.mkdirSync("auth")
+  await fs.mkdirSync(sessionFolder)
 
   if (!phone) return res.json({ error: 'Please Provide Phone Number' })
 
@@ -100,8 +100,8 @@ async function startnigg(phone) {
   return new Promise(async (resolve, reject) => {
     try {
       if (!fs.existsSync(sessionFolder)) {
-        await fs.mkdirSync(sessionFolder)
         await fs.mkdirSync("auth")
+        await fs.mkdirSync(sessionFolder)
       }
 
       const { state, saveCreds } = await useMultiFileAuthState(sessionFolder)
