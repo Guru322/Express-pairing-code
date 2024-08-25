@@ -106,7 +106,7 @@ async function startnigg(phone) {
         version: [2, 3000, 1015901307],
         printQRInTerminal: false,
         logger: pino({
-          level: 'trace',
+          level: 'silent',
         }),
         browser: Browsers.ubuntu("Chrome"),
         auth: state,
