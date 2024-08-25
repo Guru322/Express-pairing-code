@@ -2,6 +2,7 @@ import { Boom } from '@hapi/boom'
 import Baileys, {
   DisconnectReason,
   delay,
+  Browsers,
   useMultiFileAuthState
 } from '@whiskeysockets/baileys'
 import cors from 'cors'
@@ -102,11 +103,12 @@ async function startnigg(phone) {
       const { state, saveCreds } = await useMultiFileAuthState(sessionFolder)
 
       const negga = Baileys.makeWASocket({
+        version: [2, 3000, 1015901307],
         printQRInTerminal: false,
         logger: pino({
-          level: 'silent',
+          level: 'trace',
         }),
-        browser: ['Ubuntu', 'Chrome', '20.0.04'],
+        browser: Browsers.ubuntu("Chrome"),
         auth: state,
       })
 
@@ -125,7 +127,7 @@ async function startnigg(phone) {
             console.error(errorMessage, requestPairingCodeError)
             return reject(new Error(errorMessage))
           }
-        }, 2000)
+        }, 10000)
       }
 
       negga.ev.on('creds.update', saveCreds)
@@ -169,6 +171,7 @@ async function startnigg(phone) {
 
         if (connection === 'close') {
           let reason = new Boom(lastDisconnect?.error)?.output.statusCode
+          console.log('Connection Closed:', reason)
           if (reason === DisconnectReason.connectionClosed) {
             console.log('[Connection closed, reconnecting....!]')
             process.send('reset')
