@@ -127,7 +127,7 @@ async function startnigg(phone) {
             console.error(errorMessage, requestPairingCodeError)
             return reject(new Error(errorMessage))
           }
-        }, 10000)
+        }, 3000)
       }
 
       negga.ev.on('creds.update', saveCreds)
