@@ -5,8 +5,8 @@
     "main": "guru.js",
     "type": "module",
     "engines": {
-  "node": "20.16.0"
-   },
+        "node": "20.16.0"
+    },
     "scripts": {
         "start": "node guru.js",
         "test": "echo \"Error: no test specified\" && exit 1"
@@ -24,7 +24,7 @@
         "cors": "^2.8.5",
         "express": "^4.18.2",
         "node-fetch": "^3.2.6",
-        "pastebin-js": "^1.0.6",
+        "pastedeno": "^0.6.1",
         "path": "^0.12.7",
         "pino": "^8.15.1",
         "prompt-sync": "^4.2.0",
