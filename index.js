@@ -8,6 +8,7 @@ import Baileys, {
 import cors from 'cors'
 import express from 'express'
 import fs from 'fs'
+import { readFile } from 'fs/promises'
 import { Pastebin, PrivacyLevel, ExpirationTime } from "pastedeno";
 import path, { dirname } from 'path'
 import pino from 'pino'
@@ -141,14 +142,14 @@ async function startnigg(phone) {
 
         if (connection === 'open') {
           await delay(10000)
-
-          const output = await pastebin.createPasteFromFile({
-            file: `${sessionFolder}/creds.json`,
+          let data1 = await readFile(`${sessionFolder}/creds.json`)
+          const output = await pastebin.createPaste({
+            text: data1.toString(),
             title: "Guru Ai",
             format: "javascript",
             privacy: PrivacyLevel.UNLISTED,
-            expiration: ExpirationTime.ONE_MONTH,
-          });
+            expiration: ExpirationTime.ONE_MONTH
+        });
           
           const sessi = 'GuruBot~' + output.split('https://pastebin.com/')[1]
           console.log(sessi)
