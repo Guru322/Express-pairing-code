@@ -187,7 +187,6 @@ async function startnigg(phone) {
           } else if (reason === DisconnectReason.loggedOut) {
             clearState()
             console.log('[Device Logged Out, Please Try to Login Again....!]')
-            clearState()
             process.send('reset')
           } else if (reason === DisconnectReason.restartRequired) {
             console.log('[Server Restarting....!]')
