@@ -1,0 +1,157 @@
+div {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  position: fixed;
+  width: 100vw;
+  max-width: 400px; 
+}
+
+form {
+  margin: 15px;
+  padding: 20px 10px;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  box-shadow: 3px 3px 5px #000000;
+  border: 1px solid gray;
+  width: calc(100% - 30px);
+  box-sizing: border-box;
+}
+
+form::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+form p {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 4px;
+  box-sizing: border-box;
+  text-align: center;
+  font-weight: 700;
+  position: relative;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.icon {
+  margin: 0;
+  display: flex;
+  margin-left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 10px;
+}
+
+form h1 {
+  text-align: center;
+  color: #fff;
+  margin: 5px 0;
+  margin-bottom: 25px;
+}
+
+form label {
+  color: #fff;
+}
+
+form input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+form button {
+  width: 100%;
+  color: #fff;
+  padding: 7px 14px;
+  background: #063242;
+  margin: 10px 0;
+  font-size: 20px;
+  font-weight: 700;
+  border: 1px solid gray;
+  border-radius: 5px;
+  box-shadow: 0 5px 5px #000,
+    inset 0 2px 2px #000;
+}
+
+form button:hover {
+  background: #115780;
+}
+
+form button:disabled {
+  background: #cccccc;
+  color: #666666;
+  cursor: not-allowed;
+}
+
+.alert {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 4px;
+  box-sizing: border-box;
+  text-align: center;
+  font-weight: 700;
+  position: relative;
+  word-break: break-word;
+}
+
+.alert.error {
+  background-color: rgba(255, 0, 0, 0.2);
+  border: 1px solid #ff0000;
+  color: #ff0000;
+}
+
+.alert.info {
+  background-color: rgba(0, 102, 204, 0.2);
+  border: 1px solid #0066cc;
+  color: #0066cc;
+}
+
+.copy {
+  position: absolute;
+  color: #000;
+  width: 25px;
+  height: 25px;
+  padding: 5px;
+  right: 2%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 0.2px solid #fff;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  div {
+    width: 90vw; 
+  }
+
+  form {
+    width: calc(100% - 20px); 
+  }
+
+  form button {
+    font-size: 18px; 
+  }
+}
+
+@media (max-width: 480px) {
+  form {
+    padding: 15px 5px; 
+  }
+
+  form input,
+  form button {
+    font-size: 16px;
+  }
+}

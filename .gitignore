@@ -1,2 +1,4 @@
 node_modules
 auth
+client/build
+client/node_modules

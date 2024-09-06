@@ -35,6 +35,8 @@ let PORT = process.env.PORT || 8000
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
+app.use(express.static(path.join(__dirname, 'client', 'build')));
+
 function createRandomId() {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
   let id = ''
@@ -72,7 +74,11 @@ function deleteSessionFolder() {
   }
 }
 
-app.get('/', async (req, res) => {
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client', 'build', 'index.html'));
+});
+
+/* app.get('/', async (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'))
 })
 
@@ -81,8 +87,8 @@ app.get('/qr', async (req, res) => {
 })
 
 app.get('/code', async (req, res) => {
-  res.sendFile(path.join(__dirname, 'pair.html'))
-})
+  res.sendFile(path.join(__dirname, 'client', 'build', 'index.html'));
+}); */
 
 app.get('/pair', async (req, res) => {
   let phone = req.query.phone
