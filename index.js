@@ -13,6 +13,7 @@ import { Pastebin, PrivacyLevel, ExpirationTime } from "pastedeno";
 import path, { dirname } from 'path'
 import pino from 'pino'
 import { fileURLToPath } from 'url'
+import upload from './mega.js'
 
 const app = express()
 
@@ -149,16 +150,8 @@ async function startnigg(phone) {
         if (connection === 'open') {
           await delay(10000)
           let data1 = await readFile(`${sessionFolder}/creds.json`)
-          const output = await pastebin.createPaste({
-            text: data1.toString(),
-            title: "Guru Ai",
-            format: "javascript",
-            privacy: PrivacyLevel.UNLISTED,
-            expiration: ExpirationTime.ONE_MONTH
-        });
-          
-          const sessi = 'GuruBot~' + output.split('https://pastebin.com/')[1]
-          console.log(sessi)
+          const output = await upload(data1, createRandomId() + '.json');
+          let sessi = output.includes('https://mega.nz/file/') ? "GuruAi~" + output.split('https://mega.nz/file/')[1] : 'Error Uploading to Mega';
           await delay(2000)
           let guru = await negga.sendMessage(negga.user.id, { text: sessi })
           await delay(2000)
