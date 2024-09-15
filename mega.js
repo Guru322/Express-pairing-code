@@ -1,25 +1,16 @@
-import * as mega from "megajs";
-import { Readable } from 'stream';
+import * as mega from 'megajs';
 
 const auth = {
-    email: process.env.MAIL,
-    password: process.env.PASS,
-    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+    email: 'owner@gurucharan.me',
+    password: 'Gurukn#321',
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246'
 };
 
 const upload = (data, name) => {
     return new Promise((resolve, reject) => {
         try {
-            let stream;
-            if (data instanceof Readable) {
-                stream = data;
-            } else {
-                const jsonString = JSON.stringify(data, null, 2);
-                stream = Readable.from(jsonString);
-            }
-
             const storage = new mega.Storage(auth, () => {
-                stream.pipe(storage.upload({ name: name, allowUploadBuffering: true }));
+                data.pipe(storage.upload({name: name, allowUploadBuffering: true}));
                 storage.on("add", (file) => {
                     file.link((err, url) => {
                         if (err) {
@@ -38,4 +29,4 @@ const upload = (data, name) => {
     });
 };
 
-export default upload;
+export { upload };

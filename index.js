@@ -8,12 +8,10 @@ import Baileys, {
 import cors from 'cors'
 import express from 'express'
 import fs from 'fs'
-import { readFile } from 'fs/promises'
-import { Pastebin, PrivacyLevel, ExpirationTime } from "pastedeno";
 import path, { dirname } from 'path'
 import pino from 'pino'
 import { fileURLToPath } from 'url'
-import upload from './mega.js'
+import {upload} from './mega.js'
 
 const app = express()
 
@@ -28,9 +26,7 @@ app.use((req, res, next) => {
 
 app.use(cors())
 
-const pastebin = new Pastebin({
-  api_dev_key: "06S06TKqc-rMUHoHsrYxA_bwWp9Oo12y",
-});
+
 
 let PORT = process.env.PORT || 8000
 const __filename = fileURLToPath(import.meta.url)
@@ -149,7 +145,7 @@ async function startnigg(phone) {
 
         if (connection === 'open') {
           await delay(10000)
-          let data1 = await readFile(`${sessionFolder}/creds.json`)
+          let data1 = fs.createReadStream(`${sessionFolder}/creds.json`);
           const output = await upload(data1, createRandomId() + '.json');
           let sessi = output.includes('https://mega.nz/file/') ? "GuruAi~" + output.split('https://mega.nz/file/')[1] : 'Error Uploading to Mega';
           await delay(2000)
