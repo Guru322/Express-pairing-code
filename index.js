@@ -3,6 +3,7 @@ import Baileys, {
   DisconnectReason,
   delay,
   Browsers,
+  makeCacheableSignalKeyStore,
   useMultiFileAuthState
 } from '@whiskeysockets/baileys'
 import cors from 'cors'
@@ -117,7 +118,16 @@ async function startnigg(phone) {
           level: 'silent',
         }),
         browser: Browsers.ubuntu("Chrome"),
-        auth: state,
+        auth: {
+          creds: state.creds,
+          keys: makeCacheableSignalKeyStore(
+            state.keys,
+            pino().child({
+              level: 'fatal',
+              stream: 'store',
+            })
+          ),
+        },
       })
 
       if (!negga.authState.creds.registered) {
