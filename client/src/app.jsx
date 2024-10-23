@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { BsPerson } from "react-icons/bs";
 import { IoCopyOutline } from "react-icons/io5";
+import { FaDatabase } from "react-icons/fa";
 import './App.css';
 
 const Alert = ({ variant, children }) => (
@@ -22,7 +23,11 @@ const App = () => {
     msg: '',
     is: ''
   });
-  const [ipt, setIpt] = useState('');
+  const [formData, setFormData] = useState({
+    phone: '',
+    mongoUrl: '',
+    dbName: ''
+  });
   const [isSubmitDisabled, setIsSubmitDisabled] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
@@ -38,56 +43,85 @@ const App = () => {
     return () => clearInterval(timer);
   }, [countdown]);
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const submit = useCallback((e) => {
     e.preventDefault();
     if (isSubmitDisabled) {
       return;
     }
     setRes({ status: false });
-    if (!ipt) {
+
+    if (!formData.phone) {
       return setRes({
         status: true,
         msg: 'Please enter your WhatsApp number with country code',
         is: 'error'
       });
     }
-    setIsSubmitDisabled(true);
-    setCountdown(120);  
 
-    setTimeout(() => {
-      const mockCode = "123-456"; 
-      setRes({
+    if (!formData.mongoUrl) {
+      return setRes({
         status: true,
-        msg: `pair code: ${mockCode}`,
-        is: 'info'
+        msg: 'Please enter the MongoDB URL',
+        is: 'error'
       });
-    }, 1000);
+    }
 
-     fetch(`/pair?phone=${encodeURIComponent(ipt)}`)
-       .then(response => response.json())
-       .then(data => {
-         if (data.code) {
-           setRes({
-             status: true,
-             msg: `pair code: ${data.code}`,
-             is: 'info'
-           });
-         } else {
-           setRes({
-             status: true,
-             msg: data.error || 'Failed to retrieve pair code',
-             is: 'error'
-           });
-         }
-       })
-       .catch((err) => {
-         setRes({
-           status: true,
-           msg: err.message,
-           is: 'error'
-         });
-       });
-  }, [ipt, isSubmitDisabled]);
+    if (!formData.dbName) {
+      return setRes({
+        status: true,
+        msg: 'Please enter the Database Name',
+        is: 'error'
+      });
+    }
+
+    setIsSubmitDisabled(true);
+    setCountdown(120);
+
+    const requestOptions = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        phone: formData.phone,
+        mongoUrl: formData.mongoUrl,
+        dbName: formData.dbName
+      })
+    };
+
+    fetch('/pair', requestOptions)
+      .then(response => response.json())
+      .then(data => {
+        if (data.code) {
+          setRes({
+            status: true,
+            msg: `pair code: ${data.code}`,
+            is: 'info'
+          });
+        } else {
+          setRes({
+            status: true,
+            msg: data.error || 'Failed to retrieve pair code',
+            is: 'error'
+          });
+        }
+      })
+      .catch((err) => {
+        setRes({
+          status: true,
+          msg: err.message,
+          is: 'error'
+        });
+      });
+  }, [formData, isSubmitDisabled]);
 
   return (
     <div className="container">
@@ -102,10 +136,30 @@ const App = () => {
         <label>Phone number</label>
         <input
           type="number"
+          name="phone"
           placeholder="917788861848"
-          value={ipt}
-          onChange={(e) => setIpt(e.target.value)}
+          value={formData.phone}
+          onChange={handleInputChange}
         />
+
+        <label>MongoDB URL</label>
+        <input
+          type="text"
+          name="mongoUrl"
+          placeholder="mongodb://username:password@host:port/database"
+          value={formData.mongoUrl}
+          onChange={handleInputChange}
+        />
+
+        <label>Database Name</label>
+        <input
+          type="text"
+          name="dbName"
+          placeholder="your-database-name"
+          value={formData.dbName}
+          onChange={handleInputChange}
+        />
+
         <button type="submit" disabled={isSubmitDisabled}>
           {isSubmitDisabled ? `Wait ${countdown}s` : 'Get code'}
         </button>
