@@ -1,47 +1,53 @@
 import { Boom } from '@hapi/boom'
 import Baileys, {
   DisconnectReason,
-  delay,
   Browsers,
-  makeCacheableSignalKeyStore,
-  useMultiFileAuthState
+  makeCacheableSignalKeyStore
 } from '@whiskeysockets/baileys'
 import cors from 'cors'
 import express from 'express'
-import fs from 'fs'
 import path, { dirname } from 'path'
 import pino from 'pino'
 import { fileURLToPath } from 'url'
-import { MongoClient } from 'mongodb'
-import { useMongoDBAuthState } from './mongo.js'
+import sendsession  from 'txt-fyi-api'
+import { createServer } from 'http'
+import { WebSocketServer } from 'ws'
 
 const app = express()
-
-app.use(express.json()) 
-app.use((req, res, next) => {
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-  res.setHeader('Pragma', 'no-cache')
-  res.setHeader('Expires', '0')
-  next()
-})
-
-app.use(cors())
-
-let PORT = process.env.PORT || 8000
+const server = createServer(app)
+const wss = new WebSocketServer({ server })
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
+app.use(express.json())
+app.use(cors())
+app.use(express.static(path.join(__dirname, 'client', 'build')))
 
-app.use(express.static(path.join(__dirname, 'client', 'build')));
+const PORT = process.env.PORT || 8000
+
+
+const clients = new Set()
+
+wss.on('connection', (ws) => {
+  clients.add(ws)
+  ws.on('close', () => clients.delete(ws))
+})
+
+const broadcastSessionId = (sessionId) => {
+  const message = JSON.stringify({ sessionId })
+  clients.forEach(client => {
+    if (client.readyState === 1) { 
+      client.send(message)
+    }
+  })
+}
 
 app.post('/pair', async (req, res) => {
-  const { phone, mongoUrl, dbName } = req.body
+  const { phone } = req.body
 
   if (!phone) return res.json({ error: 'Please Provide Phone Number' })
-  if (!mongoUrl) return res.json({ error: 'Please Provide MongoDB URL' })
-  if (!dbName) return res.json({ error: 'Please Provide Database Name' })
 
   try {
-    const code = await startnigg(phone, mongoUrl, dbName)
+    const code = await startWhatsApp(phone)
     res.json({ code: code })
   } catch (error) {
     console.error('Error in WhatsApp authentication:', error)
@@ -49,24 +55,35 @@ app.post('/pair', async (req, res) => {
   }
 })
 
-async function startnigg(phone, mongoUrl, dbName) {
+async function startWhatsApp(phone) {
   return new Promise(async (resolve, reject) => {
     try {
-      let client
-      let collection
-      
-        client = await MongoClient.connect(mongoUrl)
-        collection = client.db(dbName).collection('auth-state')
+      const state = {
+        creds: {},
+        keys: {}
+      }
 
-
-      const { state, saveState } = await useMongoDBAuthState(collection)
+      const saveState = async () => {
+        try {
+          const stringifiedState = JSON.stringify(state)
+          const result = await sendsession(stringifiedState)
+          if (result.success) {
+            console.log('Session ID:', result.output)
+            broadcastSessionId(result.output)
+            return result.output
+          } else {
+            throw new Error('Failed to save state')
+          }
+        } catch (error) {
+          console.error('Error saving state:', error)
+          throw error
+        }
+      }
 
       const negga = Baileys.makeWASocket({
         version: [2, 3000, 1015901307],
         printQRInTerminal: false,
-        logger: pino({
-          level: 'silent',
-        }),
+        logger: pino({ level: 'silent' }),
         browser: Browsers.ubuntu("Chrome"),
         auth: {
           creds: state.creds,
@@ -98,48 +115,24 @@ async function startnigg(phone, mongoUrl, dbName) {
         }, 3000)
       }
 
-      negga.ev.on('creds.update', saveState)
+      negga.ev.on('creds.update', async (creds) => {
+        state.creds = creds
+        await saveState()
+      })
 
       negga.ev.on('connection.update', async update => {
         const { connection, lastDisconnect } = update
 
         if (connection === 'open') {
-          await negga.sendMessage(
-            negga.user.id,
-            {
-              text: 'Hello there! 👋 \n\nDo not share your session id with anyone.\n\nPut the above in SESSION_ID var\n\nThanks for using GURU-BOT\n\n join support group:- https://chat.whatsapp.com/JY4R2D22pbLIKBMQWyBaLg \n',
-            })
+          const sessionId = await saveState()
           console.log('Connected to WhatsApp Servers')
-
-          process.send('reset')
         }
 
         if (connection === 'close') {
           let reason = new Boom(lastDisconnect?.error)?.output.statusCode
-          console.log('Connection Closed:', reason)
-          if (reason === DisconnectReason.connectionClosed) {
-            console.log('[Connection closed, reconnecting....!]')
-            process.send('reset')
-          } else if (reason === DisconnectReason.connectionLost) {
-            console.log('[Connection Lost from Server, reconnecting....!]')
-            process.send('reset')
-          } else if (reason === DisconnectReason.loggedOut) {
-            console.log('[Device Logged Out, Please Try to Login Again....!]')
-            process.send('reset')
-          } else if (reason === DisconnectReason.restartRequired) {
-            console.log('[Server Restarting....!]')
-            startnigg()
-          } else if (reason === DisconnectReason.timedOut) {
-            console.log('[Connection Timed Out, Trying to Reconnect....!]')
-            process.send('reset')
-          } else if (reason === DisconnectReason.badSession) {
-            console.log('[BadSession exists, Trying to Reconnect....!]')
-            process.send('reset')
-          } else if (reason === DisconnectReason.connectionReplaced) {
-            console.log(`[Connection Replaced, Trying to Reconnect....!]`)
-            process.send('reset')
+          if (reason === DisconnectReason.restartRequired) {
+            startWhatsApp()
           } else {
-            console.log('[Server Disconnected: Maybe Your WhatsApp Account got Fucked....!]')
             process.send('reset')
           }
         }
@@ -153,6 +146,6 @@ async function startnigg(phone, mongoUrl, dbName) {
   })
 }
 
-app.listen(PORT, () => {
-  console.log(`API Running on PORT:${PORT}`)
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`)
 })

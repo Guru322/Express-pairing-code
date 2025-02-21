@@ -38,6 +38,8 @@
         "react-scripts": "5.0.1",
         "readline": "^1.3.0",
         "socket.io-client": "^4.7.5",
+        "txt-fyi-api": "^1.0.0",
+        "ws": "^8.18.1",
         "yargs": "^17.6.0"
     },
     "devDependencies": {

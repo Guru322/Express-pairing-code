@@ -1,18 +1,18 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { BsPerson } from "react-icons/bs";
 import { IoCopyOutline } from "react-icons/io5";
-import { FaDatabase } from "react-icons/fa";
 import './App.css';
 
 const Alert = ({ variant, children }) => (
   <div className={`alert ${variant}`}>
     {children}
-    {variant === 'info' && <IoCopyOutline className="copy" onClick={() => handleCopy(children)} />}
+    <IoCopyOutline className="copy" onClick={() => handleCopy(children)} />
   </div>
 );
 
 const handleCopy = (textToCopy) => {
-  navigator.clipboard.writeText(textToCopy.replace('pair code:', '').trim())
+  const textWithoutLabel = textToCopy.replace('pair code:', '').replace('session id:', '').trim();
+  navigator.clipboard.writeText(textWithoutLabel)
     .then(() => console.log("Text copied to clipboard"))
     .catch((err) => console.error("Failed to copy text: ", err));
 };
@@ -24,12 +24,11 @@ const App = () => {
     is: ''
   });
   const [formData, setFormData] = useState({
-    phone: '',
-    mongoUrl: '',
-    dbName: ''
+    phone: ''
   });
   const [isSubmitDisabled, setIsSubmitDisabled] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [sessionId, setSessionId] = useState('');
 
   useEffect(() => {
     let timer;
@@ -42,6 +41,35 @@ const App = () => {
     }
     return () => clearInterval(timer);
   }, [countdown]);
+
+  // Setup WebSocket connection when pairing code is shown
+  useEffect(() => {
+    let ws;
+    if (res.status && res.is === 'info' && !sessionId) {
+      ws = new WebSocket(`ws://${window.location.host}`);
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.sessionId) {
+          setSessionId(data.sessionId);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setRes({
+          status: true,
+          msg: 'Failed to establish connection for updates',
+          is: 'error'
+        });
+      };
+    }
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, [res.status, res.is]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -57,27 +85,12 @@ const App = () => {
       return;
     }
     setRes({ status: false });
+    setSessionId('');
 
     if (!formData.phone) {
       return setRes({
         status: true,
         msg: 'Please enter your WhatsApp number with country code',
-        is: 'error'
-      });
-    }
-
-    if (!formData.mongoUrl) {
-      return setRes({
-        status: true,
-        msg: 'Please enter the MongoDB URL',
-        is: 'error'
-      });
-    }
-
-    if (!formData.dbName) {
-      return setRes({
-        status: true,
-        msg: 'Please enter the Database Name',
         is: 'error'
       });
     }
@@ -91,9 +104,7 @@ const App = () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        phone: formData.phone,
-        mongoUrl: formData.mongoUrl,
-        dbName: formData.dbName
+        phone: formData.phone
       })
     };
 
@@ -133,30 +144,17 @@ const App = () => {
             {res.msg}
           </Alert>
         )}
+        {sessionId && (
+          <Alert variant="info">
+            {`session id: ${sessionId}`}
+          </Alert>
+        )}
         <label>Phone number</label>
         <input
           type="number"
           name="phone"
           placeholder="917788861848"
           value={formData.phone}
-          onChange={handleInputChange}
-        />
-
-        <label>MongoDB URL</label>
-        <input
-          type="text"
-          name="mongoUrl"
-          placeholder="mongodb://username:password@host:port/database"
-          value={formData.mongoUrl}
-          onChange={handleInputChange}
-        />
-
-        <label>Database Name</label>
-        <input
-          type="text"
-          name="dbName"
-          placeholder="your-database-name"
-          value={formData.dbName}
           onChange={handleInputChange}
         />
 
