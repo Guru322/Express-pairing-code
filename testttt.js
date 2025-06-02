@@ -1,4 +1,3 @@
-// Test script 
 import fetch from 'node-fetch';
 
 const testPairEndpoint = async () => {
