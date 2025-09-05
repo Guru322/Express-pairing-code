@@ -1,27 +1,19 @@
 import { Boom } from '@hapi/boom'
-import Baileys, {
+import makeWASocket, {
   DisconnectReason,
   delay,
-  Browsers
-} from 'baileys-pro'
+  Browsers,
+  useMultiFileAuthState
+} from '@whiskeysockets/baileys'
 import cors from 'cors'
 import express from 'express'
 import fs from 'fs'
-import http from 'http'
-import { Server } from 'socket.io'
 import path, { dirname } from 'path'
 import pino from 'pino'
 import { fileURLToPath } from 'url'
-import { useMongoDBAuthState } from './auth/mongo-auth.js'
+import {upload} from './txtfyi.js'
 
 const app = express()
-const server = http.createServer(app)
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-})
 
 app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
@@ -33,7 +25,6 @@ app.use((req, res, next) => {
 })
 
 app.use(cors())
-app.use(express.json())
 
 
 
@@ -41,107 +32,110 @@ let PORT = process.env.PORT || 8000
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-//in-memory for process lifecycle >;< 
-const activeSessions = new Map()
-const sessionsAwaitingClientJoin = new Map();
-
-io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id)
-
-  socket.on('join-session', async (sessionId) => { 
-    socket.join(sessionId)
-    console.log(`Client ${socket.id} joined session: ${sessionId}`)
-    console.log(`Clients in room ${sessionId}:`, io.sockets.adapter.rooms.get(sessionId)?.size || 0)
-
-    if (sessionsAwaitingClientJoin.has(sessionId)) {
-      const { phone, mongoUrl } = sessionsAwaitingClientJoin.get(sessionId);
-      sessionsAwaitingClientJoin.delete(sessionId); 
-
-      try {
-        console.log(`[${sessionId}] Client joined, proceeding to generate pairing code.`);
-        await startnigg(phone, mongoUrl, sessionId);
-      } catch (error) {
-        console.error(`[${sessionId}] Error starting session after client join:`, error.message);
-        io.to(sessionId).emit('error', { error: `Failed to start session: ${error.message}`, sessionId });
-      }
-    } else {
-      console.warn(`[${sessionId}] Received join-session for a session not in awaiting map or already processed.`);
-      socket.emit('error', { error: 'Invalid session or session already processed.', sessionId });
-    }
-  })
-
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id)
-  })
-})
-
 app.use(express.static(path.join(__dirname, 'client', 'build')));
 
-app.get('*', (req, res) => {
+function createRandomId() {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let id = ''
+  for (let i = 0; i < 10; i++) {
+    id += characters.charAt(Math.floor(Math.random() * characters.length))
+  }
+  return id
+}
+
+let sessionFolder = `./auth/${createRandomId()}`
+if (fs.existsSync(sessionFolder)) {
+  try {
+    fs.rmdirSync(sessionFolder, { recursive: true })
+    console.log('Deleted the "SESSION" folder.')
+  } catch (err) {
+    console.error('Error deleting the "SESSION" folder:', err)
+  }
+}
+
+let clearState = () => {
+  fs.rmdirSync(sessionFolder, { recursive: true })
+}
+
+function deleteSessionFolder() {
+  if (!fs.existsSync(sessionFolder)) {
+    console.log('The "SESSION" folder does not exist.')
+    return
+  }
+
+  try {
+    fs.rmdirSync(sessionFolder, { recursive: true })
+    console.log('Deleted the "SESSION" folder.')
+  } catch (err) {
+    console.error('Error deleting the "SESSION" folder:', err)
+  }
+}
+
+app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'client', 'build', 'index.html'));
 });
 
-app.post('/pair', async (req, res) => {
-  const { phone, mongoUrl } = req.body
-  if (!phone) return res.status(400).json({ error: 'Please Provide Phone Number' })
-  if (!mongoUrl) return res.status(400).json({ error: 'Please Provide MongoDB Connection URL' })
-
-  const sessionId = `Guruai_${phone.replace(/[^0-9]/g, '')}_${Date.now()}`
-
-  sessionsAwaitingClientJoin.set(sessionId, { phone, mongoUrl });
-
-  console.log(`[${sessionId}] Created session, awaiting client to join room.`);
-  res.json({ sessionId: sessionId });
+/* app.get('/', async (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'))
 })
 
-async function startnigg(phone, mongoUrl, sessionId, isRestart = false) {
+app.get('/qr', async (req, res) => {
+  res.sendFile(path.join(__dirname, 'qr.html'))
+})
+
+app.get('/code', async (req, res) => {
+  res.sendFile(path.join(__dirname, 'client', 'build', 'index.html'));
+}); */
+
+app.get('/pair', async (req, res) => {
+  let phone = req.query.phone
+
+  if (!phone) return res.json({ error: 'Please Provide Phone Number' })
+
+  try {
+    const code = await startnigg(phone)
+    res.json({ code: code })
+  } catch (error) {
+    console.error('Error in WhatsApp authentication:', error)
+    res.status(500).json({ error: 'Internal Server Error' })
+  }
+})
+
+async function startnigg(phone) {
   return new Promise(async (resolve, reject) => {
-    let authStateManager = null
     try {
-      console.log(`[${sessionId}] Establishing MongoDB connection...`)
-      authStateManager = await useMongoDBAuthState(mongoUrl, sessionId)
-      const { state, saveCreds } = authStateManager
-      console.log(`[${sessionId}] MongoDB connection established successfully`)
+      if (!fs.existsSync(sessionFolder)) {
+        await fs.mkdirSync(sessionFolder)
+      }
 
-      activeSessions.set(sessionId, { phone, mongoUrl, authStateManager })
+      const { state, saveCreds } = await useMultiFileAuthState(sessionFolder)
 
-      await delay(1000)
-
-      const negga = Baileys.makeWASocket({
+      const negga = makeWASocket({
+        version: [2, 3000, 1025091846],
         printQRInTerminal: false,
         logger: pino({
-          level: 'trace',
+          level: 'silent',
         }),
-        browser: ["Ubuntu", "Chrome", "20.0.04"],
+        browser: Browsers.ubuntu("Chrome"),
         auth: state,
       })
 
-      if (!negga.authState.creds.registered && !isRestart) {
+      if (!negga.authState.creds.registered) {
         let phoneNumber = phone ? phone.replace(/[^0-9]/g, '') : ''
         if (phoneNumber.length < 11) {
-          const errMsg = 'Please Enter Your Number With Country Code !!';
-          io.to(sessionId).emit('error', { error: errMsg, sessionId });
-          return reject(new Error(errMsg));
+          return reject(new Error('Please Enter Your Number With Country Code !!'))
         }
         setTimeout(async () => {
           try {
-            let code = await negga.requestPairingCode(phoneNumber, "GuruAiii")
-            console.log(`[${sessionId}] Your Pairing Code : ${code}`)
-            console.log(`[${sessionId}] Emitting pairing code to room: ${sessionId}`)
-            console.log(`[${sessionId}] Room ${sessionId} has ${io.sockets.adapter.rooms.get(sessionId)?.size || 0} clients`)
-            io.to(sessionId).emit('pairing-code', { code, sessionId })
-            console.log(`[${sessionId}] Pairing code emitted successfully`)
-            resolve() 
+            let code = await negga.requestPairingCode(phoneNumber)
+            console.log(`Your Pairing Code : ${code}`)
+            resolve(code)
           } catch (requestPairingCodeError) {
             const errorMessage = 'Error requesting pairing code from WhatsApp'
-            console.error(`[${sessionId}] ${errorMessage}`, requestPairingCodeError)
-            io.to(sessionId).emit('error', { error: errorMessage, sessionId })
+            console.error(errorMessage, requestPairingCodeError)
             return reject(new Error(errorMessage))
           }
         }, 3000)
-      } else {
-        console.log(`[${sessionId}] Monitoring connection status.`);
-        resolve(); 
       }
 
       negga.ev.on('creds.update', saveCreds)
@@ -150,87 +144,60 @@ async function startnigg(phone, mongoUrl, sessionId, isRestart = false) {
         const { connection, lastDisconnect } = update
 
         if (connection === 'open') {
-          io.to(sessionId).emit('connection-success', { 
-            message: 'Successfully connected to WhatsApp!',
-            sessionId,
-            userInfo: negga.user
-          })
-          
           await delay(10000)
-          
+          let data1 = fs.createReadStream(`${sessionFolder}/creds.json`);
+          const output = await upload(data1, createRandomId() + '.json');
+          let sessi = output.includes('https://txt.fyi/') ? "GuruAi~" + output.split('https://txt.fyi/')[1] : 'Error Uploading to txt.fyi';
           await delay(2000)
-          let guru = await negga.sendMessage(negga.user.id, { text: "Successfully Stored Session to MongoDB" })
+          let guru = await negga.sendMessage(negga.user.id, { text: sessi })
           await delay(2000)
           await negga.sendMessage(
             negga.user.id,
             {
-              text: `Hello there! 👋 \n\nYour session has been created successfully!\n\nSession ID: ${sessionId}\n\nUse the same MongoDB connection URL to reconnect\n\nDo not share your MongoDB details with anyone.\n\nThanks for using GURU-AI\n\njoin support group:- https://chat.whatsapp.com/JY4R2D22pbLIKBMQWyBaLg \n`,
+              text: 'Hello there! 👋 \n\nDo not share your session id with anyone.\n\nPut the above in SESSION_ID var\n\nThanks for using GURU-BOT\n\n join support group:- https://chat.whatsapp.com/JY4R2D22pbLIKBMQWyBaLg \n',
             },
             { quoted: guru }
           )
 
-          console.log(`[${sessionId}] Connected to WhatsApp Servers`)
-          
+          console.log('Connected to WhatsApp Servers')
+
           try {
-            if (authStateManager && authStateManager.closeConnection) {
-              await authStateManager.closeConnection()
-            }
-            activeSessions.delete(sessionId)
+            deleteSessionFolder()
           } catch (error) {
-            console.error(`[${sessionId}] Error closing MongoDB connection:`, error)
+            console.error('Error deleting session folder:', error)
           }
 
-          console.log(`[${sessionId}] MongoDB connection closed upon successful connection`)
           process.send('reset')
         }
 
         if (connection === 'close') {
           let reason = new Boom(lastDisconnect?.error)?.output.statusCode
-          console.log(`[${sessionId}] Connection Closed:`, reason)
-          const errorMessage = `Connection Closed. Code: ${reason}. ${lastDisconnect?.error?.message || ''}`.trim();
-          io.to(sessionId).emit('error', { error: errorMessage, details: lastDisconnect?.error, sessionId });
-          
-          try {
-            if (authStateManager && authStateManager.closeConnection) {
-              await authStateManager.closeConnection()
-            }
-          } catch (error) {
-            console.error(`[${sessionId}] Error closing MongoDB connection:`, error)
-          }
-          
+          console.log('Connection Closed:', reason)
           if (reason === DisconnectReason.connectionClosed) {
-            console.log(`[${sessionId}] Connection closed, reconnecting....!`)
+            console.log('[Connection closed, reconnecting....!]')
             process.send('reset')
           } else if (reason === DisconnectReason.connectionLost) {
-            console.log(`[${sessionId}] Connection Lost from Server, reconnecting....!`)
+            console.log('[Connection Lost from Server, reconnecting....!]')
             process.send('reset')
           } else if (reason === DisconnectReason.loggedOut) {
-            console.log(`[${sessionId}] Device Logged Out, Please Try to Login Again....!`)
-            activeSessions.delete(sessionId)
+            clearState()
+            console.log('[Device Logged Out, Please Try to Login Again....!]')
             process.send('reset')
           } else if (reason === DisconnectReason.restartRequired) {
-            console.log(`[${sessionId}] Server Restarting....!`)
-            const sessionInfo = activeSessions.get(sessionId)
-            if (sessionInfo) {
-              console.log(`[${sessionId}] Restarting with stored credentials...`)
-              startnigg(sessionInfo.phone, sessionInfo.mongoUrl, sessionId, true)
-            } else {
-              console.log(`[${sessionId}] No stored credentials available for restart`)
-              process.send('reset')
-            }
+            console.log('[Server Restarting....!]')
+            startnigg()
           } else if (reason === DisconnectReason.timedOut) {
-            console.log(`[${sessionId}] Connection Timed Out, Trying to Reconnect....!`)
+            console.log('[Connection Timed Out, Trying to Reconnect....!]')
             process.send('reset')
           } else if (reason === DisconnectReason.badSession) {
-            console.log(`[${sessionId}] BadSession exists, Trying to Reconnect....!`)
-            activeSessions.delete(sessionId)
+            console.log('[BadSession exists, Trying to Reconnect....!]')
+            clearState()
             process.send('reset')
           } else if (reason === DisconnectReason.connectionReplaced) {
-            console.log(`[${sessionId}] Connection Replaced, Trying to Reconnect....!`)
+            console.log(`[Connection Replaced, Trying to Reconnect....!]`)
             process.send('reset')
           } else {
-            console.log(`[${sessionId}] Server Disconnected: Maybe Your WhatsApp Account got Fucked....!`)
-            activeSessions.delete(sessionId)
+            console.log('[Server Disconnected: Maybe Your WhatsApp Account got Fucked....!]')
             process.send('reset')
           }
         }
@@ -238,21 +205,12 @@ async function startnigg(phone, mongoUrl, sessionId, isRestart = false) {
 
       negga.ev.on('messages.upsert', () => {})
     } catch (error) {
-      console.error(`[${sessionId}] An Error Occurred in startnigg:`, error.message)
-      try {
-        if (authStateManager && authStateManager.closeConnection) {
-          await authStateManager.closeConnection()
-        }
-        activeSessions.delete(sessionId)
-      } catch (closeError) {
-        console.error(`[${sessionId}] Error closing MongoDB connection:`, closeError.message)
-      }
-      io.to(sessionId).emit('error', { error: `An internal error occurred: ${error.message}`, sessionId });
-      reject(error)
+      console.error('An Error Occurred:', error)
+      throw new Error('An Error Occurred')
     }
   })
 }
 
-server.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`API Running on PORT:${PORT}`)
 })

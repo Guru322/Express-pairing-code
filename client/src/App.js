@@ -1,77 +1,151 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   Container, 
   Typography, 
-  Box
+  Box,
+  Paper,
+  ThemeProvider,
+  createTheme,
+  CssBaseline,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
+import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PairingForm from './components/PairingForm';
 import PairingStatus from './components/PairingStatus';
-import io from 'socket.io-client';
+
+// Material Design 3 inspired theme
+const createAppTheme = (mode) => createTheme({
+  palette: {
+    mode,
+    primary: {
+      main: '#1976d2',
+      light: '#42a5f5',
+      dark: '#1565c0',
+    },
+    secondary: {
+      main: '#25d366', // WhatsApp green
+      light: '#4caf50',
+      dark: '#1b5e20',
+    },
+    background: {
+      default: mode === 'light' ? '#f8f9fa' : '#121212',
+      paper: mode === 'light' ? '#ffffff' : '#1e1e1e',
+    },
+    text: {
+      primary: mode === 'light' ? '#1a1a1a' : '#ffffff',
+      secondary: mode === 'light' ? '#5f6368' : '#b3b3b3',
+    },
+    success: {
+      main: '#25d366',
+    },
+    error: {
+      main: '#d32f2f',
+    },
+  },
+  typography: {
+    fontFamily: '"Inter", "Roboto", "Arial", sans-serif',
+    h4: {
+      fontWeight: 600,
+      fontSize: '2rem',
+    },
+    h5: {
+      fontWeight: 500,
+      fontSize: '1.5rem',
+    },
+    h6: {
+      fontWeight: 500,
+    },
+    body1: {
+      fontSize: '1rem',
+      lineHeight: 1.5,
+    },
+    body2: {
+      fontSize: '0.875rem',
+      lineHeight: 1.43,
+    },
+  },
+  shape: {
+    borderRadius: 12,
+  },
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          backgroundColor: mode === 'light' ? '#f8f9fa' : '#121212',
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+          borderRadius: 24,
+          padding: '12px 24px',
+          fontWeight: 500,
+          boxShadow: 'none',
+          '&:hover': {
+            boxShadow: mode === 'light' 
+              ? '0 2px 8px rgba(0, 0, 0, 0.15)' 
+              : '0 2px 8px rgba(255, 255, 255, 0.15)',
+          },
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 12,
+          },
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 16,
+          boxShadow: mode === 'light' 
+            ? '0 2px 12px rgba(0, 0, 0, 0.08)' 
+            : '0 2px 12px rgba(0, 0, 0, 0.3)',
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+          boxShadow: mode === 'light' 
+            ? '0 2px 8px rgba(0, 0, 0, 0.1)' 
+            : '0 2px 8px rgba(0, 0, 0, 0.3)',
+        },
+      },
+    },
+  },
+});
 
 function App() {
-  const [socket, setSocket] = useState(null);
-  const [sessionId, setSessionId] = useState('');
   const [pairingCode, setPairingCode] = useState('');
   const [connectionStatus, setConnectionStatus] = useState('idle'); 
   const [statusMessage, setStatusMessage] = useState('');
-  const [userInfo, setUserInfo] = useState(null);
+  const [darkMode, setDarkMode] = useState(false);
 
-  useEffect(() => {
-   
-    const isCodespaces = window.location.hostname.includes('app.github.dev');
-    const backendUrl = isCodespaces 
-      ? window.location.origin.replace('-3000', '-8000') 
-      : (process.env.NODE_ENV === 'production' 
-          ? window.location.origin 
-          : 'http://localhost:8000');
-    console.log('Initializing socket connection to:', backendUrl);
-    const newSocket = io(backendUrl);
-    setSocket(newSocket);
+  const theme = createAppTheme(darkMode ? 'dark' : 'light');
 
-    newSocket.on('connect', () => {
-      console.log('Socket connected successfully with ID:', newSocket.id);
-    });
+  const toggleTheme = () => {
+    setDarkMode(!darkMode);
+  };
 
-    newSocket.on('pairing-code', (data) => {
-      console.log('Pairing code received:', data);
-      console.log('Setting pairing code:', data.code);
-      setPairingCode(data.code);
-      setConnectionStatus('code-generated');
-      setStatusMessage('Pairing code generated! Enter it in your WhatsApp app.');
-      console.log('State updated - status: code-generated, code:', data.code);
-    });
-
-    newSocket.onAny((eventName, ...args) => {
-      console.log('Socket event received:', eventName, args);
-    });
-
-    newSocket.on('connection-success', (data) => {
-      console.log('WhatsApp connected:', data);
-      setConnectionStatus('connected');
-      setStatusMessage('Successfully connected to WhatsApp!');
-      setUserInfo(data.userInfo);
-    });
-
-    newSocket.on('error', (data) => {
-      console.error('Socket error:', data);
-      setConnectionStatus('error');
-      setStatusMessage(data.error || 'An error occurred');
-    });
-
-    return () => {
-      newSocket.disconnect();
-    };
-  }, []);
-
-  const handlePairingSubmit = async (phone, mongoUrl) => {
+  const handlePairingSubmit = async (phone) => {
     try {
-      setConnectionStatus('connecting');
-      setStatusMessage('Establishing connection...');
+      setConnectionStatus('generating');
+      setStatusMessage('Generating pairing code...');
       setPairingCode('');
-      setUserInfo(null);
-      setSessionId('');
-      //Copilot Generated this shit , i will remove this part later
+      
+      // Determine the backend URL based on environment
       const isCodespaces = window.location.hostname.includes('app.github.dev');
       const backendUrl = isCodespaces 
         ? window.location.origin.replace('-3000', '-8000') 
@@ -79,26 +153,22 @@ function App() {
             ? '' 
             : 'http://localhost:8000');
       
-      const response = await fetch(`${backendUrl}/pair`, {
-        method: 'POST',
+      const response = await fetch(`${backendUrl}/pair?phone=${encodeURIComponent(phone)}`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ phone, mongoUrl }),
       });
 
       const data = await response.json();
 
-      if (response.ok) {
-        setSessionId(data.sessionId);
-        console.log('Joining session room:', data.sessionId);
-        socket.emit('join-session', data.sessionId);
-        console.log('Session join emitted, setting status to generating');
-        setStatusMessage('Generating pairing code...');
-        setConnectionStatus('generating');
+      if (response.ok && data.code) {
+        setPairingCode(data.code);
+        setConnectionStatus('code-generated');
+        setStatusMessage('Pairing code generated! Enter it in your WhatsApp app.');
       } else {
         setConnectionStatus('error');
-        setStatusMessage(data.error || 'Failed to start pairing process');
+        setStatusMessage(data.error || 'Failed to generate pairing code');
       }
     } catch (error) {
       console.error('Error:', error);
@@ -111,128 +181,193 @@ function App() {
     setConnectionStatus('idle');
     setStatusMessage('');
     setPairingCode('');
-    setSessionId('');
-    setUserInfo(null);
   };
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      p: 2,
-      position: 'relative',
-      overflow: 'hidden',
-      '&::before': {
-        content: '""',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%)',
-        pointerEvents: 'none'
-      }
-    }}>
-      <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>
-        <Box 
-          sx={{ 
-            background: 'rgba(255, 255, 255, 0.1)',
-            backdropFilter: 'blur(30px)',
-            borderRadius: '24px',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-            p: 4,
-            textAlign: 'center',
-            transition: 'all 0.3s ease-in-out',
-            position: 'relative',
-            overflow: 'hidden',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: '-100%',
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ 
+        minHeight: '100vh',
+        background: theme.palette.mode === 'light' 
+          ? 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
+          : 'linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: 2,
+      }}>
+        <Container maxWidth="md">
+          {/* macOS Tab Design Container */}
+          <Box
+            sx={{
+              position: 'relative',
+              backgroundColor: theme.palette.background.paper,
+              borderRadius: 0,
               width: '100%',
-              height: '100%',
-              background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent)',
-              transition: 'left 0.5s',
-            },
-            '&:hover::before': {
-              left: '100%',
-            }
-          }}
-        >
-          {/* Header */}
-          <Box sx={{ mb: 4 }}>
-            <Box 
+              maxWidth: '1080px',
+              minHeight: '480px',
+              margin: '0 auto',
+              boxShadow: theme.palette.mode === 'light' 
+                ? '0 -2px 20px rgba(0, 0, 0, 0.1), 0 4px 20px rgba(0, 0, 0, 0.08)' 
+                : '0 -2px 20px rgba(0, 0, 0, 0.3), 0 4px 20px rgba(0, 0, 0, 0.25)',
+              overflow: 'hidden',
+              transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: theme.palette.mode === 'light' 
+                  ? '0 -4px 25px rgba(0, 0, 0, 0.12), 0 8px 25px rgba(0, 0, 0, 0.1)' 
+                  : '0 -4px 25px rgba(0, 0, 0, 0.4), 0 8px 25px rgba(0, 0, 0, 0.3)',
+              }
+            }}
+          >
+            {/* macOS Tab Header */}
+            <Box
               sx={{
-                display: 'inline-flex',
+                height: '36px',
+                backgroundColor: theme.palette.mode === 'light' ? '#f6f6f6' : '#2d2d2d',
+                borderBottom: `1px solid ${theme.palette.divider}`,
+                display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                width: 80,
-                height: 80,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.2) 0%, rgba(18, 140, 126, 0.2) 100%)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                mb: 3,
-                transition: 'transform 0.3s ease',
-                '&:hover': {
-                  transform: 'scale(1.1) rotate(5deg)'
-                }
+                px: 2,
+                borderRadius: 0,
               }}
             >
-              <WhatsAppIcon sx={{ fontSize: 40, color: 'rgba(255, 255, 255, 0.9)' }} />
+              {/* Traffic Light Buttons */}
+              <Box sx={{ display: 'flex', gap: 0.8 }}>
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    backgroundColor: '#ff5f57',
+                    border: theme.palette.mode === 'light' ? '0.5px solid #e04640' : 'none',
+                  }}
+                />
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    backgroundColor: '#ffbd2e',
+                    border: theme.palette.mode === 'light' ? '0.5px solid #dea123' : 'none',
+                  }}
+                />
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    backgroundColor: '#28ca42',
+                    border: theme.palette.mode === 'light' ? '0.5px solid #1aab29' : 'none',
+                  }}
+                />
+              </Box>
+              
+              {/* Tab Title */}
+              <Typography
+                variant="caption"
+                sx={{
+                  ml: 2,
+                  color: theme.palette.text.secondary,
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  userSelect: 'none',
+                }}
+              >
+                GURU AI - Session Generator
+              </Typography>
             </Box>
-            <Typography 
-              variant="h4" 
-              component="h1" 
+
+            {/* Main Content Area */}
+            <Paper 
+              elevation={0}
               sx={{ 
-                color: 'rgba(255, 255, 255, 0.95)',
-                fontWeight: 700,
-                mb: 1,
-                background: 'linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.8) 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                letterSpacing: '-0.02em'
+                p: 4,
+                textAlign: 'center',
+                backgroundColor: theme.palette.background.paper,
+                border: 'none',
+                borderRadius: 0,
+                position: 'relative',
               }}
             >
-             Guru Ai..
-            </Typography>
-            <Typography 
-              variant="body1" 
-              sx={{ 
-                color: 'rgba(255, 255, 255, 0.8)',
-                fontSize: '1.1rem',
-                fontWeight: 400
-              }}
-            >
-              Get ur SessionId
-            </Typography>
-          </Box>
+            {/* Theme Toggle Button */}
+            <Box sx={{ 
+              position: 'absolute', 
+              top: 16, 
+              right: 16 
+            }}>
+              <Tooltip title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
+                <IconButton 
+                  onClick={toggleTheme}
+                  color="inherit"
+                  sx={{ 
+                    bgcolor: theme.palette.action.hover,
+                    '&:hover': {
+                      bgcolor: theme.palette.action.selected,
+                    }
+                  }}
+                >
+                  {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+                </IconButton>
+              </Tooltip>
+            </Box>
 
-          {/* Content */}
-          <Box sx={{ minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {connectionStatus === 'idle' && (
-              <PairingForm onSubmit={handlePairingSubmit} />
-            )}
+            {/* Header */}
+            <Box sx={{ mb: 4 }}>
+              <Box 
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 64,
+                  height: 64,
+                  borderRadius: '16px',
+                  backgroundColor: darkMode ? '#1a237e' : '#e3f2fd',
+                  mb: 3,
+                }}
+              >
+                <SmartToyIcon sx={{ fontSize: 32, color: '#1976d2' }} />
+              </Box>
+              <Typography 
+                variant="h4" 
+                component="h1" 
+                sx={{ 
+                  color: theme.palette.text.primary,
+                  mb: 1,
+                }}
+              >
+                GURU AI
+              </Typography>
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  color: theme.palette.text.secondary,
+                }}
+              >
+                Generate your session id
+              </Typography>
+            </Box>
 
-            {connectionStatus !== 'idle' && (
-              <PairingStatus
-                status={connectionStatus}
-                message={statusMessage}
-                pairingCode={pairingCode}
-                sessionId={sessionId}
-                userInfo={userInfo}
-                onReset={handleReset}
-              />
-            )}
+            {/* Content */}
+            <Box sx={{ minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {connectionStatus === 'idle' && (
+                <PairingForm onSubmit={handlePairingSubmit} />
+              )}
+
+              {connectionStatus !== 'idle' && (
+                <PairingStatus
+                  status={connectionStatus}
+                  message={statusMessage}
+                  pairingCode={pairingCode}
+                  onReset={handleReset}
+                />
+              )}
+            </Box>
+            </Paper>
           </Box>
-        </Box>
-      </Container>
-    </Box>
+        </Container>
+      </Box>
+    </ThemeProvider>
   );
 }
 

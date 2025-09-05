@@ -4,17 +4,21 @@ import {
   TextField,
   Button,
   Typography,
-  InputAdornment
+  InputAdornment,
+  Alert,
+  Card,
+  CardContent,
+  useTheme
 } from '@mui/material';
 import PhoneIcon from '@mui/icons-material/Phone';
-import StorageIcon from '@mui/icons-material/Storage';
 import SendIcon from '@mui/icons-material/Send';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 const PairingForm = ({ onSubmit }) => {
   const [phone, setPhone] = useState('');
-  const [mongoUrl, setMongoUrl] = useState('');
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const theme = useTheme();
 
   const validateForm = () => {
     const newErrors = {};
@@ -23,12 +27,6 @@ const PairingForm = ({ onSubmit }) => {
       newErrors.phone = 'Phone number is required';
     } else if (!/^\+?[1-9]\d{10,14}$/.test(phone.replace(/\s/g, ''))) {
       newErrors.phone = 'Please enter a valid phone number with country code';
-    }
-
-    if (!mongoUrl.trim()) {
-      newErrors.mongoUrl = 'MongoDB connection URL is required';
-    } else if (!mongoUrl.startsWith('mongodb://') && !mongoUrl.startsWith('mongodb+srv://')) {
-      newErrors.mongoUrl = 'Please enter a valid MongoDB connection URL';
     }
 
     setErrors(newErrors);
@@ -44,7 +42,7 @@ const PairingForm = ({ onSubmit }) => {
 
     setIsSubmitting(true);
     try {
-      await onSubmit(phone.replace(/\s/g, ''), mongoUrl.trim());
+      await onSubmit(phone.replace(/\s/g, ''));
     } catch (error) {
       console.error('Form submission error:', error);
     } finally {
@@ -58,133 +56,77 @@ const PairingForm = ({ onSubmit }) => {
         <Typography 
           variant="h6" 
           sx={{ 
-            color: 'rgba(255, 255, 255, 0.9)',
-            fontWeight: 600,
+            color: theme.palette.text.primary,
+            fontWeight: 500,
             textAlign: 'center',
-            mb: 2
+            mb: 1
           }}
         >
-          Enter Ur Details
+          Enter your phone number
         </Typography>
 
         <TextField
           fullWidth
-          label="Phone Number"
-          placeholder="+9176059020xx"
+          label="Phone number"
+          placeholder="919876543210"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           error={!!errors.phone}
-          helperText={errors.phone || 'Enter your phone number with country code'}
+          helperText={errors.phone || 'Include country code without + sign'}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <PhoneIcon sx={{ color: 'rgba(255, 255, 255, 0.7)' }} />
+                <PhoneIcon sx={{ color: theme.palette.text.secondary }} />
               </InputAdornment>
             ),
-            sx: {
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              backdropFilter: 'blur(10px)',
-              borderRadius: '16px',
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.3)',
-                borderRadius: '16px',
-              },
-              '&:hover .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.5)',
-              },
-              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.8)',
-                borderWidth: '2px',
-              },
-              color: 'rgba(255, 255, 255, 0.9)',
-              transition: 'all 0.3s ease'
-            }
-          }}
-          InputLabelProps={{
-            sx: { 
-              color: 'rgba(255, 255, 255, 0.7)',
-              '&.Mui-focused': {
-                color: 'rgba(255, 255, 255, 0.9)'
-              }
-            }
-          }}
-          FormHelperTextProps={{
-            sx: { color: 'rgba(255, 255, 255, 0.6)' }
           }}
           variant="outlined"
           required
-        />
-
-        <TextField
-          fullWidth
-          label="MongoDB Connection URL"
-          placeholder="mongodb+srv://guru:password@cluster.mongodb.net/"
-          value={mongoUrl}
-          onChange={(e) => setMongoUrl(e.target.value)}
-          error={!!errors.mongoUrl}
-          helperText={errors.mongoUrl || 'Your MongoDB connection string'}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <StorageIcon sx={{ color: 'rgba(255, 255, 255, 0.7)' }} />
-              </InputAdornment>
-            ),
-            sx: {
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              backdropFilter: 'blur(10px)',
-              borderRadius: '16px',
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.3)',
-                borderRadius: '16px',
-              },
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              backgroundColor: theme.palette.background.paper,
               '&:hover .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.5)',
+                borderColor: theme.palette.primary.main,
               },
               '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(255, 255, 255, 0.8)',
+                borderColor: theme.palette.primary.main,
                 borderWidth: '2px',
               },
-              color: 'rgba(255, 255, 255, 0.9)',
-              transition: 'all 0.3s ease'
-            }
-          }}
-          InputLabelProps={{
-            sx: { 
-              color: 'rgba(255, 255, 255, 0.7)',
+            },
+            '& .MuiInputLabel-root': {
+              color: theme.palette.text.secondary,
               '&.Mui-focused': {
-                color: 'rgba(255, 255, 255, 0.9)'
+                color: theme.palette.primary.main
               }
+            },
+            '& .MuiFormHelperText-root': {
+              color: errors.phone ? theme.palette.error.main : theme.palette.text.secondary
             }
           }}
-          FormHelperTextProps={{
-            sx: { color: 'rgba(255, 255, 255, 0.6)' }
-          }}
-          variant="outlined"
-          type="password"
-          required
         />
 
-        <Box 
-          sx={{ 
-            p: 3, 
-            background: 'rgba(255, 255, 255, 0.08)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            borderRadius: '16px',
-            textAlign: 'left'
-          }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 600, color: 'rgba(255, 255, 255, 0.9)', mb: 1 }}>
-            📱 Quick Guide
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6 }}>
-            1. Enter your phone number with country code<br/>
-            2. Add your MongoDB connection URL<br/>
-            3. Click "Generate Code" and wait<br/>
-            4. Enter code in WhatsApp<br/>
-            5. Your session will be stored securely
-          </Typography>
-        </Box>
+        <Card variant="outlined" sx={{ 
+          backgroundColor: theme.palette.mode === 'light' ? '#f8f9fa' : theme.palette.background.default, 
+          border: `1px solid ${theme.palette.divider}` 
+        }}>
+          <CardContent sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+              <InfoOutlinedIcon sx={{ color: theme.palette.primary.main, fontSize: 20, mt: 0.1 }} />
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 500, color: theme.palette.text.primary, mb: 1 }}>
+                  How it works
+                </Typography>
+                <Typography variant="body2" sx={{ color: theme.palette.text.secondary, lineHeight: 1.5 }}>
+                  • Enter your phone number with country code<br/>
+                  • Get a pairing code to link your device<br/>
+                  • Open WhatsApp → Settings → Linked Devices<br/>
+                  • Enter the code to complete pairing<br/>
+                  • Session will be sent to you via WhatsApp
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
 
         <Button
           type="submit"
@@ -194,30 +136,24 @@ const PairingForm = ({ onSubmit }) => {
           disabled={isSubmitting}
           endIcon={<SendIcon />}
           sx={{ 
-            py: 2,
-            fontSize: '1.1rem',
-            fontWeight: 600,
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.8) 0%, rgba(18, 140, 126, 0.8) 100%)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            color: 'white',
-            textTransform: 'none',
-            transition: 'all 0.3s ease',
+            py: 1.5,
+            fontSize: '1rem',
+            fontWeight: 500,
+            backgroundColor: '#1a1a1a',
+            color: '#ffffff',
+            boxShadow: '0 2px 4px rgba(26, 26, 26, 0.4)',
             '&:hover': {
-              background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.9) 0%, rgba(18, 140, 126, 0.9) 100%)',
-              transform: 'translateY(-2px)',
-              boxShadow: '0 8px 25px rgba(37, 211, 102, 0.3)'
+              backgroundColor: '#000000',
+              boxShadow: '0 4px 8px rgba(26, 26, 26, 0.6)',
             },
             '&:disabled': {
-              background: 'rgba(255, 255, 255, 0.1)',
-              color: 'rgba(255, 255, 255, 0.5)',
-              transform: 'none',
+              backgroundColor: theme.palette.action.disabledBackground,
+              color: theme.palette.action.disabled,
               boxShadow: 'none'
             }
           }}
         >
-          {isSubmitting ? 'Connecting...' : 'Generate Pairing Code'}
+          {isSubmitting ? 'Generating...' : 'Generate pairing code'}
         </Button>
       </Box>
     </Box>
